@@ -67,13 +67,13 @@ Formsy.Form = React.createClass({
   // the values of the form and register child inputs
   componentWillMount: function () {
     this.gracefulDetach = true;
-    this.validate = true;
+    this.preventValidateForm = false;
     this.inputs = [];
   },
 
   componentWillUnmount: function () {
     this.gracefulDetach = false;
-    this.validate = false;
+    this.preventValidateForm = true;
   },
 
   componentDidMount: function () {
@@ -360,7 +360,7 @@ Formsy.Form = React.createClass({
   // Validate the form by going through all child input components
   // and check their state
   validateForm: function () {
-    if ( this.validate ) {
+    if ( !this.preventValidateForm ) {
 
       // We need a callback as we are validating all inputs again. This will
       // run when the last component has set its state
