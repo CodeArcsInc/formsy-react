@@ -453,6 +453,7 @@ Formsy.Form = React.createClass({
       preventExternalInvalidation,
       onSuccess,
       onError,
+      validateOnMount,
       ...nonFormsyProps
     } = this.props;
 
