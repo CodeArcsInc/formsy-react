@@ -66,7 +66,14 @@ Formsy.Form = React.createClass({
   // Add a map to store the inputs of the form, a model to store
   // the values of the form and register child inputs
   componentWillMount: function () {
+    this.gracefulDetach = true;
+    this.validate = true;
     this.inputs = [];
+  },
+
+  componentWillUnmount: function () {
+    this.gracefulDetach = false;
+    this.validate = false;
   },
 
   componentDidMount: function () {
@@ -353,52 +360,55 @@ Formsy.Form = React.createClass({
   // Validate the form by going through all child input components
   // and check their state
   validateForm: function () {
+    if ( this.validate ) {
 
-    // We need a callback as we are validating all inputs again. This will
-    // run when the last component has set its state
-    var onValidationComplete = function () {
-      var allIsValid = this.inputs.every(component => {
-        return component.state._isValid;
+      // We need a callback as we are validating all inputs again. This will
+      // run when the last component has set its state
+      var onValidationComplete = function () {
+        var allIsValid = this.inputs.every(component => {
+          return component.state._isValid;
+        });
+
+        this.setState({
+          isValid: allIsValid
+        });
+
+        if (allIsValid) {
+          this.props.onValid();
+        } else {
+          this.props.onInvalid();
+        }
+
+        // Tell the form that it can start to trigger change events
+        this.setState({
+          canChange: true
+        });
+
+      }.bind(this);
+
+      // Run validation again in case affected by other inputs. The
+      // last component validated will run the onValidationComplete callback
+      this.inputs.forEach((component, index) => {
+        var validation = this.runValidation(component);
+        if (validation.isValid && component.state._externalError) {
+          validation.isValid = false;
+        }
+        component.setState({
+          _isValid: validation.isValid,
+          _isRequired: validation.isRequired,
+          _validationError: validation.error,
+          _externalError: !validation.isValid && component.state._externalError ? component.state._externalError : null
+        }, index === this.inputs.length - 1 ? onValidationComplete : null);
       });
 
-      this.setState({
-        isValid: allIsValid
-      });
-
-      if (allIsValid) {
-        this.props.onValid();
-      } else {
-        this.props.onInvalid();
+      // If there are no inputs, set state where form is ready to trigger
+      // change event. New inputs might be added later
+      if (!this.inputs.length && this.isMounted()) {
+        this.setState({
+          canChange: true
+        });
       }
 
-      // Tell the form that it can start to trigger change events
-      this.setState({
-        canChange: true
-      });
-
-    }.bind(this);
-
-    // Run validation again in case affected by other inputs. The
-    // last component validated will run the onValidationComplete callback
-    this.inputs.forEach((component, index) => {
-      var validation = this.runValidation(component);
-      if (validation.isValid && component.state._externalError) {
-        validation.isValid = false;
-      }
-      component.setState({
-        _isValid: validation.isValid,
-        _isRequired: validation.isRequired,
-        _validationError: validation.error,
-        _externalError: !validation.isValid && component.state._externalError ? component.state._externalError : null
-      }, index === this.inputs.length - 1 ? onValidationComplete : null);
-    });
-
-    // If there are no inputs, set state where form is ready to trigger
-    // change event. New inputs might be added later
-    if (!this.inputs.length && this.isMounted()) {
-      this.setState({
-        canChange: true
-      });
     }
   },
 
@@ -418,14 +428,16 @@ Formsy.Form = React.createClass({
   // Method put on each input component to unregister
   // itself from the form
   detachFromForm: function (component) {
-    var componentPos = this.inputs.indexOf(component);
+    if ( this.gracefulDetach ) {
+      var componentPos = this.inputs.indexOf(component);
 
-    if (componentPos !== -1) {
-      this.inputs = this.inputs.slice(0, componentPos)
-        .concat(this.inputs.slice(componentPos + 1));
+      if (componentPos !== -1) {
+        this.inputs = this.inputs.slice(0, componentPos)
+          .concat(this.inputs.slice(componentPos + 1));
+      }
+
+      this.validateForm();
     }
-
-    this.validateForm();
   },
   render: function () {
     var {
