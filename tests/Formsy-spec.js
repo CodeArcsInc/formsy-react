@@ -188,6 +188,37 @@ export default {
 
   'validations': {
 
+    'should not validate on mount': function (test) {
+      const form = TestUtils.renderIntoDocument(
+        <Formsy.Form validateOnMount={false}>
+          <TestInput name="one" value="foo" validations="isNumeric" validationError="test" />
+        </Formsy.Form>
+      );
+      const input = TestUtils.findRenderedComponentWithType(form, TestInput);
+
+      test.equal(input.getErrorMessage(), null);
+      test.done();
+    },
+
+    'should not validate on submit': function (test) {
+      const form = TestUtils.renderIntoDocument(
+          <Formsy.Form validateOnSubmit={true}>
+            <TestInput name="one" value="foo" validations="isNumeric" validationError="test" />
+          </Formsy.Form>
+      );
+
+      const input = TestUtils.findRenderedComponentWithType(form, TestInput);
+
+      test.equal(input.getErrorMessage(), null);
+
+      const FoundForm = TestUtils.findRenderedDOMComponentWithTag(form, 'form');
+      TestUtils.Simulate.submit(FoundForm);
+
+      test.equal(input.getErrorMessage(), 'test');
+
+      test.done();
+    },
+
     'should run when the input changes': function (test) {
 
       const runRule = sinon.spy();
