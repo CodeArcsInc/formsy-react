@@ -67,7 +67,7 @@ Formsy.Form = React.createClass({
   // the values of the form and register child inputs
   componentWillMount: function () {
     this.gracefulDetach = true;
-    this.preventValidateForm = false;
+    this.preventValidateForm = this.props.validateOnSubmit ? true : false;
     this.inputs = [];
   },
 
@@ -77,7 +77,7 @@ Formsy.Form = React.createClass({
   },
 
   componentDidMount: function () {
-    if (this.props.validateOnMount) {
+    if (!this.props.validateOnSubmit && this.props.validateOnMount) {
       this.validateForm();
     }
   },
@@ -95,7 +95,7 @@ Formsy.Form = React.createClass({
     }
 
     var newInputNames = this.inputs.map(component => component.props.name);
-    if (utils.arraysDiffer(this.prevInputNames, newInputNames)) {
+    if (!this.props.validateOnSubmit && utils.arraysDiffer(this.prevInputNames, newInputNames)) {
       this.validateForm();
     }
 
@@ -112,13 +112,23 @@ Formsy.Form = React.createClass({
 
     event && event.preventDefault();
 
-    // Trigger form as not pristine.
-    // If any inputs have not been touched yet this will make them dirty
-    // so validation becomes visible (if based on isPristine)
-    this.setFormPristine(false);
-    var model = this.getModel();
-    this.props.onSubmit(model, this.resetModel, this.updateInputsWithError);
-    this.state.isValid ? this.props.onValidSubmit(model, this.resetModel, this.updateInputsWithError) : this.props.onInvalidSubmit(model, this.resetModel, this.updateInputsWithError);
+    var submitForm = () => {
+      // Trigger form as not pristine.
+      // If any inputs have not been touched yet this will make them dirty
+      // so validation becomes visible (if based on isPristine)
+      this.setFormPristine(false);
+      var model = this.getModel();
+      this.props.onSubmit(model, this.resetModel, this.updateInputsWithError);
+      this.state.isValid ? this.props.onValidSubmit(model, this.resetModel, this.updateInputsWithError) : this.props.onInvalidSubmit(model, this.resetModel, this.updateInputsWithError);
+    };
+
+    if ( this.props.validateOnSubmit ) {
+      this.preventValidateForm = false;
+      this.validateForm( submitForm );
+      this.preventValidateForm = true;
+    } else {
+      submitForm();
+    }
 
   },
 
@@ -239,16 +249,18 @@ Formsy.Form = React.createClass({
       this.props.onChange(this.getCurrentValues(), this.isChanged());
     }
 
-    var validation = this.runValidation(component);
-    // Run through the validations, split them up and call
-    // the validator IF there is a value or it is required
-    component.setState({
-      _isValid: validation.isValid,
-      _isRequired: validation.isRequired,
-      _validationError: validation.error,
-      _externalError: null
-    }, this.validateForm);
+    if (!this.preventValidateForm) {
 
+      var validation = this.runValidation(component);
+      // Run through the validations, split them up and call
+      // the validator IF there is a value or it is required
+      component.setState({
+        _isValid: validation.isValid,
+        _isRequired: validation.isRequired,
+        _validationError: validation.error,
+        _externalError: null
+      }, this.validateForm);
+    }
   },
 
   // Checks validation on current value or a passed value
@@ -359,7 +371,7 @@ Formsy.Form = React.createClass({
 
   // Validate the form by going through all child input components
   // and check their state
-  validateForm: function () {
+  validateForm: function (done) {
     if ( !this.preventValidateForm ) {
 
       // We need a callback as we are validating all inputs again. This will
@@ -371,7 +383,7 @@ Formsy.Form = React.createClass({
 
         this.setState({
           isValid: allIsValid
-        });
+        }, () => { if ( done ) { done(); }; } );
 
         if (allIsValid) {
           this.props.onValid();
@@ -454,6 +466,7 @@ Formsy.Form = React.createClass({
       onSuccess,
       onError,
       validateOnMount,
+      validateOnSubmit,
       ...nonFormsyProps
     } = this.props;
 
